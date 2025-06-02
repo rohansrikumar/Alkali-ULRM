@@ -1,0 +1,5 @@
+ARC-Alkali-Rydberg-Calculator
+numpy
+scipy
+sympy
+matplotlib
