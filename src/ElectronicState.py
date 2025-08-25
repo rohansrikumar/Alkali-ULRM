@@ -33,17 +33,15 @@ gamma = sp.special.gamma
 sph_harm = sp.special.sph_harm
 legendre = sp.special.lpmv
 
-GHz = 2*3.289841960355* (10**6) 
 #convert a.u. to GHz, 2*3.289841960355* (10**6) a.u. is 1GHz
+GHz = 2*3.289841960355* (10**6) 
 
+#convert eV to au, 1 a.u. is 27.2113245703 eV
 eV   = 27.2113245703 
-#convert to a.u. to eV, 1 a.u. is 27.2113245703 eV
 
-
-
-class ScatteringBasis:
+class ScatteringState:
     """
-    Represents the electron-atom scattering basis with the ground-state atom 
+    Represents an electron-atom scattering state with the ground-state atom 
     as the center of coordinates.
 
     Attributes:
@@ -97,7 +95,7 @@ class ScatteringBasis:
     
     def Scattering_quantum_numbers(self):
         """
-        List of quantum numbers that define the scattering system
+        List of quantum numbers that define the scattering state
         Returns:
             list: [S, L, J, Omega]
         """
@@ -106,15 +104,30 @@ class ScatteringBasis:
         
 
 
-#the rydberg class denoting the electronic structure of the Rydberg-atom 
-#and ground-state atom with the Rydberg ionic core as the center of coordinates
-class RydbergBasis:                                     
+
+class RydbergState:                                     
     def __init__(self,RydbergAtom,n,l,j,mj,s1,n2,l2,j2,s2,ms2,I,mi):
+        """
+        Represents the electronic states of a Rydberg atom and the ground-state atom
+        in the Rydberg ionic core frame of reference.
+
+        Attributes:
+            RydbergAtom (object): Rydberg atom object from ARC.
+            n (int): Principal quantum number of the Rydberg atom.
+            l (int): Orbital angular momentum quantum number of the Rydberg atom.
+            j (float): Total electronic angular momentum quantum number of the Rydberg atom.
+            mj (float): Projection of j along the z-axis for the Rydberg atom.
+            s1 (float): Electron spin of the Rydberg atom.
+
+            n2 (int): Principal quantum number of the ground-state atom's valence electron.
+            l2 (int): Orbital angular momentum quantum number of the ground-state atom's valence electron.
+            j2 (float): Total electronic angular momentum quantum number of the ground-state atom's valence electron.
+            s2 (float): Electron spin of the ground-state atom's valence electron.
+            ms2 (float): Projection of s2 along the z-axis for the ground-state atom's valence electron.
+            I (float): Nuclear spin of the ground-state atom.
+            mi (float): Projection of I along the z-axis for the ground-state atom."""
         
-        #Rydberg electron quantum numbers
-        #n: principal quantum number, l: orbital angular momentum
-        #j: total electronic angular momentum, mj: projection of j along the z-axis
-        #s1: electron spin of the Rydberg atom
+        #Rydberg atom quantum numbers
         self.RydbergAtom = RydbergAtom
         self.n = n
         self.l = l
@@ -123,10 +136,6 @@ class RydbergBasis:
         self.s1 = s1
         
         #Ground-state atom  (valence electron) quantum numbers
-        #n2: principal quantum number; l2: orbital angular momentum
-        #j2: total electronic angular momentum; mj2: projection of j2 along the z-axis
-        #s2: electron spin; ms2: projection of s2 along the z-axis
-        #I: nuclear spin; mi: projection of I along the z-axis
         self.n2 = n2
         self.l2 = l2
         self.j2 = j2
@@ -144,9 +153,15 @@ class RydbergBasis:
         return [self.I,self.mi,self.s2,self.ms2]
     
 
-    #Rydberg wavefunction in the Rydberg atom frame of reference
-    #defined for any non-uniform or uniform grid
+    
     def Rydberg_wavefunction(self,R):
+        """
+        Calculates the Rydberg wavefunction on a given radial grid R.
+        Parameters:
+            R (np.ndarray): Radial grid points at which to evaluate the wavefunction.
+        Returns:    
+            R, wavefunction
+        """
 
         RydbergAtom = self.RydbergAtom
         n,l,j,_,s1=self.Ryd_quantum_numbers()
@@ -183,7 +198,7 @@ class RydbergBasis:
         ms =[-s1,s1]
         Y_j=np.zeros(len(theta))
         for ms1 in ms:
-            ml = mj-ms
+            ml = mj-ms1
             Y_j += float(CG(l,ml,s1,ms1,j, mj).doit())*Spher(l,ml,theta,0)
             #print("n,l,s,j,ml,ms,mj",n,l,s,j,ml,ms,mj,sph_harm(ml,l,0,0),Spher(l,ml,0,0))
 
@@ -210,64 +225,125 @@ def Q(l,L,ML,R,f_nlj):
     return Q
         
 
+class ScatteringBasis:
+    def __init__(self, Omega, GSatom, S_list=(0.0, 1.0), L_list=(0.0, 1.0)):
+        """
+        Constructs the scattering basis for the ground-state atom frame of reference 
+        |beta> =  |L,S,J,MJ,MI,Omega> (ScatteringState instance).
+        Default values for S are (0.0, 1.0) i.e, spin singlet and triplet states.
+        Default values for L are (0.0, 1.0) i.e, S-wave and P-wave scattering.
+
+        Parameters:
+            Omega (int): Projection of total angular momentum along the z-axis (MJ + MI).
+            GSatom (object): Ground-state atom object from ARC.
+            S_list (list): List of total electron spin values to consider.
+            L_list (list): List of total orbital angular momentum values to consider.
+
+        Returns:
+            list: List of ScatteringState instances representing the scattering basis.
+        """
+
+        self.Omega = Omega
+        self.GSatom = GSatom
+        #Ensure S_list and L_list are lists or tuples, otherwise convert to lists
+        self.S_list = S_list if isinstance(S_list, (list, tuple)) else [S_list]
+        self.L_list = L_list if isinstance(L_list, (list, tuple)) else [L_list]
+        self.beta_basis = self._generate_basis()
+
+    def _generate_basis(self):
+        """
+        Generates the full scattering basis and filters it based on Omega (internal method).
+        Returns: List of ScatteringState instances.
+        """
+        beta_full = []
+        for L in self.L_list:
+            for S in self.S_list:
+                JJ = np.arange(np.abs(S - L), S + L + 1, 1)
+                for J in JJ:
+                    MMJ = np.arange(-J, J + 1, 1)
+                    for MJ in MMJ:
+                        MMI = np.arange(-self.GSatom.I, self.GSatom.I + 1, 1)
+                        for MI in MMI:
+                            beta_full.append(ScatteringState(S, L, J, MJ, MI, self.Omega))
+
+        #Filter states based on Omega
+        return [b for b in beta_full if b.MJ + b.MI == self.Omega]
+
+    def get_basis_states(self):
+        """
+        Returns the list of basis states.
+        """
+        return self.beta_basis
                             
 
-#Basis: ground-state atom frame of reference  |L,S,J,MJ,MI,Omega>        
-def beta_basis(Omega,GSatom):
-    beta_full =[]
-    SS =[0.0,1.0]  #Default alkali metals: spin 1/2
-    LL =[0.0,1.0]  #Only S and P scattering channels
-    for L in LL:
-        for S in SS:
-            JJ = np.arange(np.abs(S - L),S+L+1,1)
-            for J in JJ:
-                MMJ = np.arange(-J,J+1,1)
-                for MJ in MMJ:
-                    MMI = np.arange(-GSatom.I,GSatom.I+1,1)
-                    for MI in MMI:
-                        beta_full.append(ScatteringBasis(S,L,J,MJ,MI,Omega))
-    
-    
-    ## limiting ground-state basis to only states with a given Omega 
-    beta = []
-    for b in beta_full:
-        if b.MJ + b.MI == Omega:
-            beta.append(b)
-            
-    return beta
+       
+
+class RydbergBasis:
+    def __init__(self,RydbergAtom,n_range,E_range,Omega,GSatom):    
+        """
+        Constructs the electronic basis for the diatomic system in the rydberg ionic core frame of reference.
+        |alpha> = {|n,l,j,mj,s1,n2,l2,j2,s2,ms2,I,mi>} (list of RydbergState instance).
+
+        Parameters:
+            RydbergAtom (object): Rydberg atom object from ARC.
+            n_range (tuple): Range of principal quantum numbers (n_min, n_max).
+            E_range (tuple): Range of energies (E_min, E_max).
+            Omega (int): Projection of total angular momentum along the z-axis (mj + ms2 + mi).
+            GSatom (object): Ground-state atom object with necessary properties and methods.
+        
+        """
+        self.RydbergAtom = RydbergAtom
+        self.Omega = Omega
+        self.GSatom = GSatom
+        self.n_min, self.n_max = n_range
+        self.E_min, self.E_max = E_range
+
+        if self.n_max < self.n_min:
+            raise ValueError("n_max must be >= n_min.")
+        if self.E_max < self.E_min:
+            raise ValueError("E_max must be >= E_min.")
+        
+        self.alpha_basis = self._generate_basis()
+        
+    def _generate_basis(self):
+        """
+        Generates the full electronic basis and filters it based on Omega (internal method).
+        Returns: List of RydbergState instances.
+        """
+        GSatom, RydbergAtom = self.GSatom, self.RydbergAtom
+
+        #default alkali atom ground-state |n,l=0,s=1/2,j=1/2>
+        n2,l2,s2,j2 = GSatom.groundStateN,0,0.5,0.5  
+        
+        alpha_full=[]
+        s1=0.5  #default rydberg atom spin
+
+        for n in range(self.n_min,self.n_max+5):
+            for l in range(0,n):
+                jj = np.arange(np.abs(l-s1),l+s1+1,1)
+                for j in jj:
+                    E= RydbergAtom.getEnergy(n, l, j)/eV 
+                    if E >= self.E_min and E <= self.E_max:
+                        mmj = np.arange(-j,j+1,1) 
+                        for mj in mmj:
+                            mms2 = [-0.5,0.5]
+                            for ms2 in mms2:
+                                mmi = np.arange(-GSatom.I,GSatom.I +1,1)
+                                for mi in mmi:
+                                    alpha_full.append(RydbergState(RydbergAtom,n, l, j,mj,s1,n2,l2,j2,s2,ms2,GSatom.I,mi))
+
+
+        ## limiting Rydberg basis to only states with a given Omega
+        return [ a for a in alpha_full if a.ms2 + a.mi + a.mj == self.Omega ]
+        
+    def get_basis_states(self):
+        """
+        Returns the list of basis states.
+        """
+        return self.alpha_basis
 
 
 
-#Basis: rydberg frame of reference 
-def alpha_basis(RydbergAtom,n_min,n_max,E_min,E_max,Omega,GSatom):
-    
-    n2,l2,s2,j2 = GSatom.groundStateN,0,0.5,0.5  
-    #default alkali atom ground-state |n,l=0,s=1/2,j=1/2>
-    alpha_full=[]
-    s1=0.5  #default rydberg atom spin
-
-    for n in range(n_min,n_max+5):
-        for l in range(0,n):
-            jj = np.arange(np.abs(l-s1),l+s1+1,1)
-            for j in jj:
-                E= RydbergAtom.getEnergy(n, l, j)/eV 
-                if E >= E_min and E <= E_max:
-                    mmj = np.arange(-j,j+1,1) 
-                    for mj in mmj:
-                        mms2 = [-0.5,0.5]
-                        for ms2 in mms2:
-                            mmi = np.arange(-GSatom.I,GSatom.I +1,1)
-                            for mi in mmi:
-                                alpha_full.append(RydbergBasis(RydbergAtom,n, l, j,mj,s1,n2,l2,j2,s2,ms2,GSatom.I,mi))
-
-
-    ## limiting Rydberg basis to only states with a given Omega
-    alpha=[]
-    for a in alpha_full:
-        if a.ms2 + a.mi + a.mj == Omega:
-            alpha.append(a)  
-            
-    return alpha
 
 
 
@@ -276,10 +352,10 @@ def alpha_basis(RydbergAtom,n_min,n_max,E_min,E_max,Omega,GSatom):
 #Equation 18
 def H_Scattering(beta,k,phase_shifts):
     H_U = np.zeros([len(beta),len(beta),k.size])
-    p=0
-    for b in beta:
+    
+    for p,b in enumerate(beta):
         H_U[p,p,:] = (2*b.L +1)**2 * b.a_SL(k,phase_shifts) /2
-        p=p+1
+        
     return H_U
 
 #Rydberg electron hamiltonian w.r.t Rydberg core; spin-orbit included
@@ -338,7 +414,7 @@ def A_transform(alpha,beta,R):
     see Equation (19) in Ref. [1] for details
     Parameters:
         alpha (list): List of RydbergBasis instances.
-        beta (list): List of ScatteringBasis instances.
+        beta (list): List of ScatteringState instances.
         R (np.ndarray): Radial grid points.
     Returns:    
         np.ndarray: Transformation matrix A with dimensions [len(alpha), len(beta), len(R)].
@@ -403,9 +479,17 @@ def dipole_matrix(alpha,atom):
 
     return V_dipole
 
-#d(R): dipole moment calculator of ULRM
-#The rydberg dipole transition matrix is necessary input
+
+
 def dipole_moment(state,V_dipole):
+    """
+    d(R): dipole moment calculator of ULRM
+    Parameters:
+        state (np.ndarray): Electronic state vector in the Rydberg basis (|alpha>).
+        V_dipole (np.ndarray): Dipole transition matrix in the Rydberg basis (|alpha>).
+    Returns:    
+        np.ndarray: Dipole moment vector for the electronic state as a function of R.
+    """
     
     sum_tot = np.einsum('nr,nm,mr-> r',state,V_dipole,state.conj())
     #Summation(m,n) C_m* C_n <phi_m|dipole|phi_n>
@@ -491,9 +575,9 @@ def phase_interpolation(phases):
 
 
 @np.vectorize
-def kinetic_energy(n,r,k_cut=0):
+def kval(n,r,k_cut=0):
     """
-    Calculates the semiclassical kinetic energy of the Rydberg electron.
+    Calculates the semiclassical momentum of the Rydberg electron.
     Parameters:
         n (int or np.ndarray): Principal quantum number.
         r (float or np.ndarray): Distance from the Rydberg ionic core.

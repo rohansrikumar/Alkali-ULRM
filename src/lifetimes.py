@@ -6,13 +6,34 @@ alkali atoms, as well as ULRMs formed by them.
 
 
 import numpy as np
+from sympy.physics.quantum.cg import CG
+
 from scipy.constants import physical_constants, epsilon_0, hbar
-
-
 from scipy.constants import c as C_c #speed of light
 from scipy.constants import h as C_h #Planck's constant
 from scipy.constants import e as C_e #electron charge
 
+#Calculating the photo excitation strength matrix 
+#between all possible Rydberg states in the |alpha> basis 
+# and a given final state (Ryd class instance)
+def photo_excitation(alpha,states,atom,initial_state,F=1):
+    
+    n,l,j = initial_state
+    mj_rate = np.zeros_like(states[0])
+
+    for mj in np.arange(-j,j+1):
+        alpha_sum = np.zeros_like(states[0],dtype=complex)
+        for i,a in enumerate(alpha):
+            alpha_sum += atom.getDipoleMatrixElement(n,l,j,mj,a.n,a.l,a.j,a.mj, q = a.mj-mj) \
+                        * float(CG(a.I,a.mi,a.s2,a.ms2,F, a.mi + a.ms2).doit()) \
+                         * states[i,:]
+            
+        #Calculate the transition rate for each mj
+        mj_rate += np.abs(alpha_sum)**2
+        
+
+    total_rate =  mj_rate / np.sqrt(1+2*F) / np.sqrt(1+2*j)
+    return total_rate
 
 
 def dipole_transition_basis(alpha,atom,final_state):
