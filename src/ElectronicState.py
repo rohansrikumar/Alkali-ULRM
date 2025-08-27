@@ -539,33 +539,17 @@ def diagonalization(H_ryd,H_hfs,H_U,A_matrix,R):
     return energy,states
 
 
-def elec_wf(coef,alpha,R):
-    
-    U_nlj = np.array([a.Rydberg_wavefunction(R)[1] for a in alpha]) #a.GenSpher([0.0]) for a in alpha])
-    psi_nlj = np.sum(U_nlj*coef[:,None],axis=0)
-    #print(psi_nlj.shape,U_nlj.shape,coef[:,None].shape)
-    tt = np.linspace(0,2*np.pi,10)
-    print("PSI:",psi_nlj)
-    #print("My Ylm",[alpha[0].GenSpher([t]) for t in tt])
-    
-    return psi_nlj
-    
-def anion_wf(R,Rin):
-    x = np.abs(R-Rin)
-    l=1.35094
-    r0 = 9.004786
-    n=0
-    z= np.sinh(x/r0)
-    F12 = sp.special.hyp2f1(-n,-2*l + n +1,1.5,-z**2)
-    #print("Hypergeometery:",F12)
-    wf = (np.cosh(x/r0))**(-2*l)*z*F12
-    #print("wf:",wf.shape,"x:",x.shape)
-    return wf
 
 
-#given phase-shifts are interpolated to be used as functions
-#in the (k-dependent) calcualtions of H_U
+
 def phase_interpolation(phases):
+    """
+    Input phase-shift date are interpolated to form usable functions for H_U.
+    Parameters:
+        phases (np.ndarray): Array of phase shifts with each row [k, 1S0, 3S1, 1P1, 3P0, 3P1, 3P2].
+    Returns:
+        list: List of interpolated phase shift functions.
+    """
     phase_shifts = []
     for i in range(1,phases[0].size):
         phase_shifts.append(interp1d(phases[:,0],phases[:,i],kind="cubic"))
@@ -609,3 +593,22 @@ def Spher(l,m,theta,phi):
     t = c * np.emath.sqrt(gamma(l-m+1)*(2*l+1)/(gamma(l+m+1)*4.0*np.pi))
     return t
 
+
+
+
+    
+def anion_wf(R,Rin, l=1.35094, r0 = 9.004786, n=0):
+    """
+    Calculates the electronic wavefunction for an Alkali anion
+    Parameters:
+        R (np.ndarray): Radial grid points.
+        Rin (float): Anion position with respect to Rydberg core.
+    """
+    x = np.abs(R-Rin)
+    l=1.35094
+    r0 = 9.004786
+    n=0
+    z= np.sinh(x/r0)
+    F12 = sp.special.hyp2f1(-n,-2*l + n +1,1.5,-z**2)
+    wf = (np.cosh(x/r0))**(-2*l)*z*F12
+    return wf
