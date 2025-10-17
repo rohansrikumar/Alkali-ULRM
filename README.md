@@ -35,14 +35,6 @@ Key modules include (see src folder):
 [SpinOperators.py]: Manages spin coupling calculations.
 [Lifetimes.py]: Computes radiative properties of the molecule.
 
-## Dependencies:
-
-Python 3.8+
-ARC (Alkali.ne Rydberg Calculator)
-NumPy
-SciPy
-Matplotlib
-Install all dependencies using: pip install -r requirements.txt
 
 ## Mathematical Model
 
