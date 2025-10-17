@@ -45,12 +45,12 @@ The mathematical modeling of the molecule and the associated Hamiltonian is base
 
 For more details, refer to the original publication:
 
-Eiles, M. T., et al. Ultralong-range Rydberg molecules: Theory and applications.
+Eiles, M. T., et al. [Hamiltonian for the inclusion of spin effects in long-range Rydberg molecules](https://doi.org/10.1103/PhysRevA.95.042515).
 
 
 
 ## References
 
 [ARC (Alkali.ne Rydberg Calculator)](https://github.com/nikolasibalic/ARC-Alkali-Rydberg-Calculator)
-Eiles, M. T., et al. Ultralong-range Rydberg molecules: Theory and applications.
+Eiles, M. T., et al. [Hamiltonian for the inclusion of spin effects in long-range Rydberg molecules](https://doi.org/10.1103/PhysRevA.95.042515)
 
