@@ -52,5 +52,6 @@ Eiles, M. T., et al. [Hamiltonian for the inclusion of spin effects in long-rang
 ## References
 
 [ARC (Alkali.ne Rydberg Calculator)](https://github.com/nikolasibalic/ARC-Alkali-Rydberg-Calculator)
+
 Eiles, M. T., et al. [Hamiltonian for the inclusion of spin effects in long-range Rydberg molecules](https://doi.org/10.1103/PhysRevA.95.042515)
 
