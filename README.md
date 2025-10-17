@@ -31,9 +31,12 @@ Ensure that the ARC package is installed, as it is a dependency for this softwar
 
 The package is designed with a modular class structure to ensure flexibility and extensibility.
 Key modules include (see src folder):
-[ElectronicState.py]: Handles the electronic structure calculations.
-[SpinOperators.py]: Manages spin coupling calculations.
-[Lifetimes.py]: Computes radiative properties of the molecule.
+
+`ElectronicState.py`: Handles the electronic structure calculations.
+
+`SpinOperators.py`: Manages angular momentum and spin coupling calculations.
+
+`Lifetimes.py`: Computes radiative properties and lifetimes of the Rydberg atom and molecule.
 
 
 ## Mathematical Model
@@ -51,8 +54,3 @@ Eiles, M. T., et al. Ultralong-range Rydberg molecules: Theory and applications.
 [ARC (Alkali.ne Rydberg Calculator)](https://github.com/nikolasibalic/ARC-Alkali-Rydberg-Calculator)
 Eiles, M. T., et al. Ultralong-range Rydberg molecules: Theory and applications.
 
-
-
-
-
-This README.md provides a detailed overview of your software, including its purpose, features, installation instructions, usage examples, dependencies, and references. Let me know if you'd like to customize it further!
