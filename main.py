@@ -66,16 +66,23 @@ def main():
     Eryd = R_atom.getEnergy(n0,3,2.5)/eV #eV -> a.u.
 
     energy,states = diagonalization(H_ryd,H_hfs,H_U,A_ab,R)
+    
     energy = GHz* (energy - Eryd) - Ezero
 
     print(states.shape)
 
     #rates = photo_excitation(alpha, states, R_atom, (5, 2, 2.5), F=1)
 
+    initial_state = {'n':5,'l':2,'j':2.5,'mj':0.5,'F':1,'MF':0}
     fig,ax = plt.subplots()
     for j in range(230,290):
-        rates = photo_excitation(alpha, states[:,j,:], R_atom, (5, 2, 2.5), F=1)
+        rates = np.zeros(len(R))
+        for mj,MF in product(np.arange(-2.5,3.5,1),np.arange(-1,2,1)):
+            initial_state = {'n':5,'l':2,'j':2.5, 'mj':mj, 'F':1, 'MF':MF}
+            rates += photo_excitation(alpha, states[:,j,:], R_atom, initial_state)
+            
         ax.scatter(R, energy[j],cmap='viridis',c=rates,s=0.8)
+        print(np.max(rates))
 
     ax.set_xlabel('R (a.u.)')
     ax.set_ylabel('Energy (a.u.)')

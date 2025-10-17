@@ -458,10 +458,17 @@ def A_transform(alpha,beta,R):
              
 
 
-
-#Calculating the electronic dipole transition matrix 
-#between all possible Rydberg states in the |alpha> basis 
 def dipole_matrix(alpha,atom):
+    """
+    Computes the dipole transition matrix elements between all
+    Rydberg states in the |alpha> basis.
+    Parameters:
+        alpha (list): List of Rydberg states (Ryd class instances).
+        atom (object): Atom class instance (from arc package).
+    Returns:
+        np.ndarray: Dipole transition matrix in the Rydberg basis (|alpha>).
+    """
+
     V_dipole = np.zeros([len(alpha),len(alpha)])
     for i in range(len(alpha)):
         for j in range(len(alpha)):

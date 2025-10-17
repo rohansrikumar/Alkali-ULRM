@@ -190,30 +190,19 @@ def atomic_lifetime_averaged(atom,n,l,j):
 #Calculating the photo excitation strength matrix 
 #between all possible Rydberg states in the |alpha> basis 
 # and a given final state (Ryd class instance)
-def photo_excitation(alpha,states,atom,initial_state,F=1):
+def photo_excitation(alpha,states,atom,initial_state):
     
-    n,l,j = initial_state
-    mj_rate = np.zeros_like(states[0])
+    dipole_list = dipole_excitation_basis(alpha,atom,initial_state) 
+    total_rate = np.abs(np.einsum('ar,a->r',states,dipole_list))
 
-    for mj in np.arange(-j,j+1):
-        alpha_sum = np.zeros_like(states[0],dtype=complex)
-        for i,a in enumerate(alpha):
-            alpha_sum += atom.getDipoleMatrixElement(n,l,j,mj,a.n,a.l,a.j,a.mj, q = a.mj-mj) \
-                        * float(CG(a.I,a.mi,a.s2,a.ms2,F, a.mi + a.ms2).doit()) \
-                         * states[i,:]
-            
-        #Calculate the transition rate for each mj
-        mj_rate += np.abs(alpha_sum)**2
-        
-
-    total_rate =  mj_rate / np.sqrt(1+2*F) / np.sqrt(1+2*j)
     return total_rate
 
 
-def dipole_transition_basis(alpha,atom,final_state):
+def dipole_emission_basis(alpha,atom,final_state):
     """
     Computes the dipole transition matrix elements between all 
-    possible Rydberg states in the |alpha> basis and a given final state.
+    possible Rydberg states in the |alpha> basis and a given final state. 
+    Useful for calculating decay rates and lifetimes of Rydberg atoms and molecules.
 
     Parameters:
         alpha : list of Rydberg states (Ryd class instances)
@@ -230,6 +219,30 @@ def dipole_transition_basis(alpha,atom,final_state):
         list_dipole = atom.getDipoleMatrixElement(a.n,a.l,a.j,a.mj,b['n'],b['l'],b['j'],b['mj'],b['mj'] - a.mj)
 
     return list_dipole
+
+
+def dipole_excitation_basis(alpha,atom,initial_state):
+    """
+    Computes the dipole transition matrix elements between a given initial state 
+    (including hyperfine structure of perturber) and all 
+    possible Rydberg states in the |alpha> basis. 
+    Useful for calculating photo excitation strengths. 
+
+    Parameters:
+        alpha : list of Rydberg states (Ryd class instances)
+        atom : Atom class instance (from arc package)
+        final_state : dictionary with keys 'n', 'l', 'j', 'mj', 'F', 'MF' representing the initial state
+
+    Returns:
+        list_dipole : numpy array of dipole matrix elements
+    """
+
+    list_dipole = np.zeros([len(alpha)])
+    b=initial_state
+    for i,a in enumerate(alpha):
+        list_dipole[i] = atom.getDipoleMatrixElement(b['n'],b['l'],b['j'],b['mj'],a.n,a.l,a.j,a.mj, a.mj - b['mj'])
+
+    return list_dipole * float(CG(a.I,a.mi,a.s2,a.ms2,b['F'], b['MF']).doit())
 
 def molecule_lifetime(alpha,atom,state_coefs_eq,energy_eq,n0):
 
@@ -248,7 +261,7 @@ def molecule_lifetime(alpha,atom,state_coefs_eq,energy_eq,n0):
                 mmj = np.arange(-j,j+1,1)
                 for mj in mmj:
                     final_state = {'n':n,'l':l,'j':j,'mj':mj}
-                    dip_list_alpha  = dipole_transition_basis(alpha,atom,final_state)
+                    dip_list_alpha  = dipole_emission_basis(alpha,atom,final_state)
 
                     Omega = 2*np.pi * (freq_eq - atom.getEnergy(n,l,j)*C_e/C_h)
                     #imported from arc, C_e: e, C_h: h i.e. electron charge and plancks constant
