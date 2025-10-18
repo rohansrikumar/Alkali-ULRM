@@ -38,6 +38,9 @@ Key modules include (see src folder):
 
 `Lifetimes.py`: Computes radiative properties and lifetimes of the Rydberg atom and molecule.
 
+See the flowchart below to understand the basic data flow and utility:
+
+![Data Flowchart](flowchart.png)
 
 ## Mathematical Model
 

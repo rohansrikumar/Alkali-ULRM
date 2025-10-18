@@ -401,12 +401,7 @@ def H_Hyperfine(alpha,GSatom):
         
     return H_hfs
 
-
-
-
-
-
-    
+  
 
 def A_transform(alpha,beta,R):
     """
@@ -455,7 +450,37 @@ def A_transform(alpha,beta,R):
     return A_matrix
 
 
-             
+
+def diagonalization(H_ryd,H_hfs,H_U,A_matrix,R):
+    """
+    Diagonalizes the Hamiltonian for the Rydberg molecule.
+    Parameters:
+        H_ryd (np.ndarray): Rydberg Hamiltonian matrix.
+        H_hfs (np.ndarray): Hyperfine structure Hamiltonian matrix.
+        H_U (np.ndarray): Scattering Hamiltonian matrix.
+        A_matrix (np.ndarray): Transformation matrix from ground-state to Rydberg basis.
+        R (np.ndarray): Radial grid points.
+    Returns:    
+        energy (np.ndarray): Eigenvalues of the Hamiltonian.
+        states (np.ndarray): Eigenstates of the Hamiltonian.
+    """
+    
+    energy=np.zeros([*H_ryd[0].shape, R.size])   
+    states=np.zeros([*H_ryd.shape, R.size])
+    
+    for i,r in enumerate(R):
+        H_V = np.dot(np.dot(A_matrix[:,:,i],H_U[:,:,i]),np.conjugate(A_matrix[:,:,i].transpose()))
+        H = H_ryd + H_V + H_hfs 
+        w,v = np.linalg.eigh(H)
+        energy[:,i] = w.copy()
+        states[:,:,i] = v.copy()
+        
+        #print(i,r)
+        
+        
+    states = phase_smoothening(states)
+    return energy,states
+
 
 
 def dipole_matrix(alpha,atom):
@@ -513,37 +538,6 @@ def phase_smoothening(states):
             if np.vdot(states[:,j,i],states[:,j,i+1]) < 0.0:
                 states[:,j,i+1] = -1*states[:,j,i+1]
     return states
-
-
-def diagonalization(H_ryd,H_hfs,H_U,A_matrix,R):
-    """
-    Diagonalizes the Hamiltonian for the Rydberg molecule.
-    Parameters:
-        H_ryd (np.ndarray): Rydberg Hamiltonian matrix.
-        H_hfs (np.ndarray): Hyperfine structure Hamiltonian matrix.
-        H_U (np.ndarray): Scattering Hamiltonian matrix.
-        A_matrix (np.ndarray): Transformation matrix from ground-state to Rydberg basis.
-        R (np.ndarray): Radial grid points.
-    Returns:    
-        energy (np.ndarray): Eigenvalues of the Hamiltonian.
-        states (np.ndarray): Eigenstates of the Hamiltonian.
-    """
-    
-    energy=np.zeros([*H_ryd[0].shape, R.size])   
-    states=np.zeros([*H_ryd.shape, R.size])
-    
-    for i,r in enumerate(R):
-        H_V = np.dot(np.dot(A_matrix[:,:,i],H_U[:,:,i]),np.conjugate(A_matrix[:,:,i].transpose()))
-        H = H_ryd + H_V + H_hfs 
-        w,v = np.linalg.eigh(H)
-        energy[:,i] = w.copy()
-        states[:,:,i] = v.copy()
-        
-        #print(i,r)
-        
-        
-    states = phase_smoothening(states)
-    return energy,states
 
 
 
