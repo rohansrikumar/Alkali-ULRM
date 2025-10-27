@@ -324,10 +324,8 @@ class RydbergBasis:
                 for j in jj:
                     E= RydbergAtom.getEnergy(n, l, j)/eV 
                     if E >= self.E_min and E <= self.E_max:
-                        mmj = np.arange(-j,j+1,1) 
-                        for mj in mmj:
-                            mms2 = [-0.5,0.5]
-                            for ms2 in mms2:
+                        for mj in np.arange(-j,j+1,1):
+                            for ms2 in [-0.5,0.5]:
                                 mmi = np.arange(-GSatom.I,GSatom.I +1,1)
                                 for mi in mmi:
                                     alpha_full.append(RydbergState(RydbergAtom,n, l, j,mj,s1,n2,l2,j2,s2,ms2,GSatom.I,mi))
