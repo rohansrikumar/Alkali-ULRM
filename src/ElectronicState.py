@@ -61,6 +61,8 @@ class ScatteringState:
         self.MJ = MJ
         self.MI = MI
         self.Omega =Omega
+
+        
         
     
     def a_SL(self,k,phase_shifts):
@@ -267,7 +269,10 @@ class ScatteringBasis:
                             beta_full.append(ScatteringState(S, L, J, MJ, MI, self.Omega))
 
         #Filter states based on Omega
-        return [b for b in beta_full if b.MJ + b.MI == self.Omega]
+        beta =  [b for b in beta_full if b.MJ + b.MI == self.Omega]
+        if len(beta) == 0:
+            raise ValueError(f"No scattering states found for Omega={self.Omega} with given S and L values.")
+        return beta
 
     def get_basis_states(self):
         """
@@ -332,7 +337,11 @@ class RydbergBasis:
 
 
         ## limiting Rydberg basis to only states with a given Omega
-        return [ a for a in alpha_full if a.ms2 + a.mi + a.mj == self.Omega ]
+        alpha =  [ a for a in alpha_full if a.ms2 + a.mi + a.mj == self.Omega ]
+        if len(alpha) ==0:
+            raise ValueError(f"No Rydberg states found for Omega={self.Omega} in the given n and E ranges.")
+        
+        return alpha
         
     def get_basis_states(self):
         """
@@ -343,61 +352,137 @@ class RydbergBasis:
 
 
 
+class Hamiltonian:
+    def __init__(self, RydbergBasis, ScatteringBasis, R, phase_shifts):
+        """
+        Constructs the Hamiltonian for the ULRM in the Rydberg ionic core frame of reference.
+        Parameters:
+            RydbergBasis (RydbergBasis): Instance of RydbergBasis class.
+            ScatteringBasis (ScatteringBasis): Instance of ScatteringBasis class.
+            R (np.ndarray): Radial grid points.
+            phase_shifts (list of callable): List of phase shift functions.
 
+        Attributes:
+            Hyperfine (np.ndarray): Hyperfine structure Hamiltonian matrix.
+            Rydberg (np.ndarray): Rydberg Hamiltonian matrix.
+            Scattering (np.ndarray): Scattering Hamiltonian matrix.
+            diagonalize (method): Method to diagonalize the total Hamiltonian.
+        """
+        self.alpha = RydbergBasis.get_basis_states()
+        self.beta = ScatteringBasis.get_basis_states()
+        self.R = R
+        self.phase_shifts = phase_shifts
+        self.RydbergAtom = RydbergBasis.RydbergAtom
+        self.GSatom = ScatteringBasis.GSatom
 
+        n_min, n_max = RydbergBasis.n_min, RydbergBasis.n_max
+        n_avg = (n_min + n_max) // 2 #average n for k calculation (floor division for integer)
 
-#Scattering hamiltonian from Ground-state perspective
-#Equation 18
-def H_Scattering(beta,k,phase_shifts):
-    H_U = np.zeros([len(beta),len(beta),k.size])
+        #electron k in n0 manifold,all k < k_cut assigned 0
+        k_cut = 0.005
+        self.k = kval(n_avg,R,k_cut) 
+
+        self.Hyperfine = self._hyperfine_hamiltonian()
+        self.Rydberg = self._rydberg_hamiltonian()
+        self.Scattering = self._scattering_hamiltonian()
+
+    def _scattering_hamiltonian(self):
+        """
+        Constructs the scattering Hamiltonian H_U in the |beta> basis.
+        Returns:
+            np.ndarray: Scattering Hamiltonian H_U with dimensions [len(beta), len(beta), len(R)].
+        """
+        beta = self.beta
+        k = self.k
+        phase_shifts = self.phase_shifts
+        H_U = np.zeros([len(beta),len(beta),k.size])
+
+        for p,b in enumerate(beta):
+            H_U[p,p,:] = (2*b.L +1)**2 * b.a_SL(k,phase_shifts) /2
+            
+        return H_U
     
-    for p,b in enumerate(beta):
-        H_U[p,p,:] = (2*b.L +1)**2 * b.a_SL(k,phase_shifts) /2
-        
-    return H_U
+    def _rydberg_hamiltonian(self):
+        """
+        Constructs the Rydberg Hamiltonian H_ryd in the |alpha> basis.
+        Returns:
+            np.ndarray: Rydberg Hamiltonian H_ryd with dimensions [len(alpha), len(alpha)].
+        """
+        alpha = self.alpha
+        RydbergAtom = self.RydbergAtom
+        H_ryd =[]
+        for a in alpha:
+            H_ryd.append(RydbergAtom.getEnergy(a.n, a.l, a.j) / eV  )
 
-#Rydberg electron hamiltonian w.r.t Rydberg core; spin-orbit included
-#Diagonal in rydberg atom basis
-def H_Rydberg(alpha,RydbergAtom):
-    H_ryd =[]
-    for a in alpha:
-        H_ryd.append(RydbergAtom.getEnergy(a.n, a.l, a.j) / eV  )
-
-    H_ryd =np.diag(np.array(H_ryd))
-    return H_ryd
-
-
-
-##Hyperfine structure of Ground-state atom: Equation (7)
-def H_Hyperfine(alpha,GSatom):
-
-    n2,l2,j2,s2 = alpha[0].n2, alpha[0].l2, alpha[0].j2,alpha[0].s2
-    A = GSatom.getHFSCoefficients(n2, l2, j2)[0]*10**(-9)/GHz
-    #Hyperfine coefficient in a.u.
-    #the function output is in GHz, so we convert it to a.u.
+        H_ryd =np.diag(np.array(H_ryd))
+        return H_ryd
     
-    H_hfs = np.zeros([len(alpha),len(alpha)])
-    FF = np.arange(np.abs(GSatom.I-s2),GSatom.I+s2+1,1)
-    
-    for p,a in enumerate(alpha):   
-        for q,b in enumerate(alpha):
+    def _hyperfine_hamiltonian(self):
+        """
+        Constructs the Hyperfine structure Hamiltonian H_hfs in the |alpha> basis.
+        Returns:
+            np.ndarray: Hyperfine structure Hamiltonian H_hfs with dimensions [len(alpha), len(alpha)].
+        """
+        alpha = self.alpha
+        GSatom = self.GSatom
 
-            #Hyperfine structure is diagonal in the Rydberg atom subspace
-            if a.Ryd_quantum_numbers() == b.Ryd_quantum_numbers():
-                s=0
-                for F in FF:
-                    MF = np.arange(-F,F+1,1)
-                    for mf in MF:
-                        if a.ms2 + a.mi == mf and b.ms2 + b.mi == mf: 
-                            s = s+ float(CG(a.s2, a.ms2, a.I, a.mi,F, mf).doit()) \
-                                * float(CG(b.s2, b.ms2, b.I, b.mi, F, mf).doit()) \
-                                    * GSatom.getHFSEnergyShift(s2, F, A)
-
-                H_hfs[p,q] = s 
-
+        n2,l2,j2,s2 = alpha[0].n2, alpha[0].l2, alpha[0].j2,alpha[0].s2
+        A = GSatom.getHFSCoefficients(n2, l2, j2)[0]*10**(-9)/GHz
+        #Hyperfine coefficient in a.u.
+        #the function output is in GHz, so we convert it to a.u.
         
+        H_hfs = np.zeros([len(alpha),len(alpha)])
+        FF = np.arange(np.abs(GSatom.I-s2),GSatom.I+s2+1,1)
         
-    return H_hfs
+        for p,a in enumerate(alpha):   
+            for q,b in enumerate(alpha):
+
+                #Hyperfine structure is diagonal in the Rydberg atom subspace
+                if a.Ryd_quantum_numbers() == b.Ryd_quantum_numbers():
+                    s=0
+                    for F in FF:
+                        MF = np.arange(-F,F+1,1)
+                        for mf in MF:
+                            if a.ms2 + a.mi == mf and b.ms2 + b.mi == mf: 
+                                s = s+ float(CG(a.s2, a.ms2, a.I, a.mi,F, mf).doit()) \
+                                    * float(CG(b.s2, b.ms2, b.I, b.mi, F, mf).doit()) \
+                                        * GSatom.getHFSEnergyShift(s2, F, A)
+
+                    H_hfs[p,q] = s 
+
+            
+            
+        return H_hfs
+        
+    def diagonalize(self):
+        """
+        Diagonalizes the Hamiltonian for the Rydberg molecule.
+        Returns:
+            energy (np.ndarray): Eigenvalues of the Hamiltonian.
+            states (np.ndarray): Eigenstates of the Hamiltonian.
+        """
+        H_ryd = self.Rydberg
+        H_hfs = self.Hyperfine
+        H_U = self.Scattering
+
+        #Construct coordinate transformation matrix A: |beta> -> |alpha>
+        A_matrix = A_transform(self.alpha,self.beta,self.R)
+
+        energy=np.zeros([*H_ryd[0].shape, self.R.size])   
+        states=np.zeros([*H_ryd.shape, self.R.size])
+        
+        for i,r in enumerate(self.R):
+            H_V = np.dot(np.dot(A_matrix[:,:,i],H_U[:,:,i]),np.conjugate(A_matrix[:,:,i].transpose()))
+            H = H_ryd + H_V + H_hfs 
+            w,v = np.linalg.eigh(H)
+            energy[:,i] = w.copy()
+            states[:,:,i] = v.copy()
+            
+            
+        states = phase_smoothening(states)
+        return energy,states
+
+
 
   
 
