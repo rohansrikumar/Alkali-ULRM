@@ -42,6 +42,10 @@ See the flowchart below to understand the basic data flow and utility:
 
 ![Data Flowchart](flowchart.png)
 
+## Example notebook
+
+The `tutorial_notebook.ipynb` outlines the process of using the Alkali-ULRM platform for performing calculations for ultralong-range molecules (ULRMs). The workflow includes defining basis states, constructing Hamiltonian components, and diagonalizing them to obtain the electronic states. Once the electronic states are calculated, we proceed to calculate R-dependent spin admixture.
+
 ## Mathematical Model
 
 The mathematical modeling of the molecule and the associated Hamiltonian is based on the work of Matt Eiles et al.. The Hamiltonian incorporates quantum scattering theory to describe the interaction between the Rydberg electron and the ground-state atom.
