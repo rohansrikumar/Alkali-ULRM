@@ -54,6 +54,62 @@ def F_projector(F,alpha):
     
     return P_F
 
+def S_projector(S,alpha):
+    """
+    Constructs the S projector matrix, for a given S, in the |alpha> basis.
+    Parameters:
+        S (int/float): Total spin quantum number.
+        alpha (list of RydbergBasis objects): Basis states.
+    Returns:
+        np.ndarray: S projector matrix.
+    Description:
+        projector for a given S value, explicitly expanded in the |alpha> basis (spin-orbit coupled, spin-spin uncoupled)
+        where S = s1+s2, the total Spin operator for the scattering system
+        we first uncouple the total spin basis |S,MS> --> |s1,ms1,s2,ms2>;  MS = ms1 + ms2
+        then recouple the spin-orbit basis |l,s1,ml,ms1> --> |l,s1,j,mj>; ml = mj-ms1 (alpha basis)
+    """
+    MSlist = np.arange(-S,S+1,1)
+    P_S = np.zeros([len(alpha),len(alpha)])
+
+    
+    #possible values of ms1
+    ms1 = [-0.5,0.5]
+
+    for i,a in enumerate(alpha):
+        for j,b in enumerate(alpha):
+            
+            #S^2 operator is diagonal in the (n,l ; I,mi) subspace
+            if (a.n,a.I,a.mi,a.l) != (b.n,b.I,b.mi,b.l):
+                continue;
+            
+            # Use itertools.product instead of nested loops
+            for ms1_a, ms1_b in product(ms1, ms1):
+                ml_a = a.mj - ms1_a
+                ml_b = b.mj - ms1_b
+                
+                # MS has to be ms2 + ms1, and a.MS == b.MS,
+                # otherwise CG coefficient is zero
+                if b.ms2 + ms1_b != a.ms2 + ms1_a:
+                    continue
+
+                MS = ms1_a + a.ms2
+                
+
+                S_coup=0
+                for MS in MSlist:
+                    #for MS in range(-S,S+1):
+                    #CG coefficients for the coupling of the total-spin basis 
+                    S_coup +=  float(CG(a.s1, ms1_a, a.s2, a.ms2,S,MS).doit()) \
+                                    * float(CG(b.s1, ms1_b, b.s2, b.ms2,S, MS).doit())
+
+                # CG coefficients for the coupling of the spin-orbit basis i.e. Back to |alpha> basis.  
+                # mj has to be ml + ms1, otherwise CG coefficient is zero 
+                P_S[i,j] += S_coup * float(CG(a.l, ml_a, a.s1, ms1_a, a.j, a.mj).doit()) * \
+                                float(CG(b.l, ml_b, b.s1, ms1_b, b.j, b.mj).doit())
+                
+    return np.array(P_S)
+
+
 
 def MN_projector(N,MN,alpha,GSatom,s2=0.5):
     
